@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Downloader</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: sans-serif;
+      background-color: #111;
+      overflow: hidden;
+      color: #f0f0f0;
+    }
+
+    canvas#particleCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+    }
+
+    header {
+      background-color: #222;
+      padding: 10px;
+      color: white;
+    }
+
+    header h2 {
+      margin: 0;
+    }
+
+    nav {
+      background-color: #222;
+      display: flex;
+      justify-content: center;
+      padding: 10px 0;
+    }
+
+    nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      gap: 20px;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    nav a:hover {
+      text-decoration: underline;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.85);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(255, 140, 0, 0.2);
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #555;
+      background: #222;
+      color: white;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: orange;
+      color: black;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+
+    button:hover {
+      background-color: darkorange;
+    }
+
+    #status {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    #downloadLink {
+      margin-top: 10px;
+    }
+
+    #previewContainer {
+      margin-top: 20px;
+      border: 1px solid #444;
+      padding: 10px;
+      border-radius: 4px;
+      background: #1a1a1a;
+    }
+
+    #previewVideo {
+      width: 100%;
+      max-height: 360px;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="particleCanvas"></canvas>
+
+<header>
+  <h2>nexlify</h2>
+  <nav>
+    <ul>
+      <li><a href="web.html">Download URL</a></li>
+      <li><a href="upload.html"></a></li>
+      <li><a href="gallery.html"></a></li>
+      <li><a href="#">More</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="container">
+  <h1>Download Videos Easily</h1>
+  <div class="form-group">
+    <label for="videoUrl">Video URL:</label>
+    <input type="text" id="videoUrl" placeholder="Enter video URL" oninput="previewVideo()">
+  </div>
+  <div class="form-group">
+    <label for="format">Download as:</label>
+    <select id="format">
+      <option value="mp4">MP4 (Video)</option>
+      <option value="mp3">MP3 (Audio)</option>
+    </select>
+  </div>
+  <div class="form-group" id="resolutionGroup">
+    <label for="resolution">Resolution:</label>
+    <select id="resolution">
+      <option value="480p">480p</option>
+      <option value="720p">720p</option>
+      <option value="1080p">1080p</option>
+      <option value="2k">2K</option>
+      <option value="4k">4K</option>
+    </select>
+  </div>
+  <button onclick="startDownload()">Download</button>
+  <div id="previewContainer" style="display:none;">
+    <h2>Video Preview</h2>
+    <div id="videoPreview"></div>
+  </div>
+  <div id="status"></div>
+  <div id="downloadLink"></div>
+</div>
+
+<script>
+  const resolutionGroup = document.getElementById('resolutionGroup');
+  const formatSelect = document.getElementById('format');
+  const statusDiv = document.getElementById('status');
+  const downloadLinkDiv = document.getElementById('downloadLink');
+  const videoUrlInput = document.getElementById('videoUrl');
+  const previewContainer = document.getElementById('previewContainer');
+  const videoPreviewDiv = document.getElementById('videoPreview');
+  const backendUrl = 'http://localhost:5000/download';
+
+  formatSelect.addEventListener('change', function () {
+    resolutionGroup.style.display = this.value === 'mp4' ? 'block' : 'none';
+  });
+
+  function previewVideo() {
+    const url = videoUrlInput.value;
+    if (url) {
+      let videoId = null;
+      if (url.includes("youtube.com/watch")) {
+        const params = new URLSearchParams(new URL(url).search);
+        videoId = params.get('v');
+      } else if (url.includes("youtu.be/")) {
+        videoId = url.split('/').pop();
+      }
+
+      if (videoId) {
+        videoPreviewDiv.innerHTML = `<iframe id="previewVideo" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        previewContainer.style.display = 'block';
+        return;
+      }
+
+      let vimeoId = null;
+      if (url.includes("vimeo.com/")) {
+        vimeoId = url.split('/').pop();
+        if (!isNaN(parseInt(vimeoId))) {
+          videoPreviewDiv.innerHTML = `<iframe id="previewVideo" src="https://player.vimeo.com/video/${vimeoId}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+          previewContainer.style.display = 'block';
+          return;
+        }
+      }
+
+      videoPreviewDiv.innerHTML = '<p>Preview might not be available for this URL.</p>';
+      previewContainer.style.display = 'block';
+    } else {
+      videoPreviewDiv.innerHTML = '';
+      previewContainer.style.display = 'none';
+    }
+  }
+
+  async function startDownload() {
+    const videoUrl = videoUrlInput.value;
+    const format = document.getElementById('format').value;
+    const resolution = document.getElementById('resolution').value;
+
+    if (!videoUrl) {
+      statusDiv.innerText = 'Please enter a video URL.';
+      return;
+    }
+
+    statusDiv.innerText = 'Sending download request...';
+    downloadLinkDiv.innerHTML = '';
+
+    try {
+      const response = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: videoUrl,
+          format: format,
+          resolution: format === 'mp4' ? resolution : null
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        statusDiv.innerText = data.message || 'Download initiated.';
+        if (data.download_url) {
+          downloadLinkDiv.innerHTML = `<a href="${data.download_url}" target="_blank">Download File</a>`;
+        }
+      } else {
+        statusDiv.innerText = `Error: ${data.error || 'Download failed.'}`;
+      }
+    } catch (error) {
+      statusDiv.innerText = `Network error: ${error.message}`;
+    }
+  }
+
+
+</script>
+<script>
+  const canvas = document.getElementById('particleCanvas');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  const mouse = { x: null, y: null };
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  for (let i = 0; i < 300; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.5 + 0.5,
+      dx: (Math.random() - 0.5) * 0.7,
+      dy: (Math.random() - 0.5) * 0.7
+    });
+  }
+
+  window.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  });
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'orange';
+    particles.forEach(p => {
+      // Basic movement
+      p.x += p.dx;
+      p.y += p.dy;
+
+      // Bounce on edge
+      if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
+      if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+
+      // Interaction with mouse
+      if (mouse.x && mouse.y) {
+        const dx = p.x - mouse.x;
+        const dy = p.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 100) {
+          p.x += dx / dist;
+          p.y += dy / dist;
+        }
+      }
+
+      // Draw
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+
+</body>
+</html>
